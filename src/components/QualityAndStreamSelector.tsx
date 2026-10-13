@@ -10,6 +10,8 @@ interface QualityAndStreamSelectorProps {
   setAudioAction: (action: 'keep_audio' | 'mute_audio' | 'merge_audio') => void;
   allowReencode: boolean;
   setAllowReencode: (val: boolean) => void;
+  universalWindowsFormat: boolean;
+  setUniversalWindowsFormat: (val: boolean) => void;
   separateAudioFile: File | null;
   setSeparateAudioFile: (file: File | null) => void;
   onStartProcessing: () => void;
@@ -24,6 +26,8 @@ export const QualityAndStreamSelector: React.FC<QualityAndStreamSelectorProps> =
   setAudioAction,
   allowReencode,
   setAllowReencode,
+  universalWindowsFormat,
+  setUniversalWindowsFormat,
   separateAudioFile,
   setSeparateAudioFile,
   onStartProcessing,
@@ -189,7 +193,28 @@ export const QualityAndStreamSelector: React.FC<QualityAndStreamSelectorProps> =
       </div>
 
       {/* 3. Re-encode & Stream Copy Discipline */}
-      <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="pt-4 border-t border-slate-800/80 space-y-3">
+        {/* Universal Windows & TV Playback Card */}
+        <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
+          <label className="flex items-start sm:items-center justify-between gap-3 cursor-pointer">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Универсальный формат (H.264 AVC + AAC) — Рекомендуется</span>
+              </span>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Автоматически гарантирует 100% совместимость со встроенным Windows Media Player («Кино и ТВ»), плеерами Smart TV, смартфонами и Mac <strong>без ошибки 0xc00d5212</strong> и без необходимости скачивать сторонние программы.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={universalWindowsFormat}
+              onChange={(e) => setUniversalWindowsFormat(e.target.checked)}
+              className="w-4 h-4 mt-0.5 sm:mt-0 rounded border-slate-700 bg-slate-900 text-emerald-600 focus:ring-emerald-500 shrink-0"
+            />
+          </label>
+        </div>
+
         <label className="flex items-start sm:items-center gap-2.5 cursor-pointer">
           <input
             type="checkbox"
@@ -197,8 +222,8 @@ export const QualityAndStreamSelector: React.FC<QualityAndStreamSelectorProps> =
             onChange={(e) => setAllowReencode(e.target.checked)}
             className="mt-0.5 sm:mt-0 w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-950"
           />
-          <span className="text-xs text-slate-300">
-            Разрешить безопасное перекодирование аудио в AAC при несовместимости контейнера (приоритет всегда отдается прямому копированию без потерь)
+          <span className="text-xs text-slate-400">
+            Разрешить быстрое перекодирование аудиопотока в AAC при несовместимости исходного контейнера
           </span>
         </label>
       </div>

@@ -133,6 +133,7 @@ export interface ProcessTaskRequest {
   separateAudioUrl?: string;
   separateAudioFileId?: string;
   allowReencode?: boolean;
+  universalWindowsFormat?: boolean;
 }
 
 export interface TestCaseResult {

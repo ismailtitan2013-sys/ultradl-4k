@@ -38,6 +38,7 @@ export default function App() {
   const [selectedQuality, setSelectedQuality] = useState<string>('');
   const [audioAction, setAudioAction] = useState<'keep_audio' | 'mute_audio' | 'merge_audio'>('keep_audio');
   const [allowReencode, setAllowReencode] = useState(true);
+  const [universalWindowsFormat, setUniversalWindowsFormat] = useState(true);
   const [separateAudioFile, setSeparateAudioFile] = useState<File | null>(null);
 
   // Processing & Verification Pipeline states
@@ -205,6 +206,7 @@ export default function App() {
       audioAction,
       separateAudioFileId,
       allowReencode,
+      universalWindowsFormat,
     };
 
     try {
@@ -267,6 +269,8 @@ export default function App() {
                   setAudioAction={setAudioAction}
                   allowReencode={allowReencode}
                   setAllowReencode={setAllowReencode}
+                  universalWindowsFormat={universalWindowsFormat}
+                  setUniversalWindowsFormat={setUniversalWindowsFormat}
                   separateAudioFile={separateAudioFile}
                   setSeparateAudioFile={setSeparateAudioFile}
                   onStartProcessing={startProcessing}

@@ -7,6 +7,7 @@ import { analyzeVideoUrl, deriveAvailableResolutions } from './src/server/source
 import { safeDownloadFile, validateUrlAgainstSSRF } from './src/server/ssrf.ts';
 import {
   runFfprobe,
+  runProcess,
   extractVideoThumbnail,
   mergeVideoAndAudio,
   createSyntheticTestFile,
@@ -259,7 +260,15 @@ app.post('/api/process', async (req, res) => {
 
     let finalProcessedPath = path.join(DOWNLOADS_DIR, `${taskId}_final.mp4`);
 
-    // 2. Separate audio merge if requested
+    // 2. Separate audio merge or universal Windows compatibility transcode
+    const initialProbe = await runFfprobe(sourceVideoPath).catch(() => null);
+    const videoStream = initialProbe?.streams?.find((s) => s.codecType === 'video');
+    const audioStream = initialProbe?.streams?.find((s) => s.codecType === 'audio');
+    const vCodec = (videoStream?.codecName || '').toLowerCase();
+    const aCodec = (audioStream?.codecName || '').toLowerCase();
+    const isAv1OrVp9 = vCodec === 'av1' || vCodec === 'vp9' || vCodec === 'vp8' || aCodec === 'opus';
+    const shouldMakeUniversal = body.universalWindowsFormat !== false && isAv1OrVp9;
+
     if (body.audioAction === 'merge_audio' && body.separateAudioFileId) {
       const audioSourcePath = path.join(UPLOADS_DIR, body.separateAudioFileId);
       if (!fs.existsSync(audioSourcePath)) {
@@ -275,6 +284,27 @@ app.post('/api/process', async (req, res) => {
       log(mergeRes.log);
       if (!mergeRes.success) {
         throw new Error(`Сбой объединения потоков: ${mergeRes.error}`);
+      }
+    } else if (shouldMakeUniversal) {
+      log(`Обнаружен современный кодек (${vCodec || 'AV1'}). Выполняется оптимизация под Windows Media Player (H.264 AVC + AAC)...`);
+      const transcodeArgs = [
+        '-i', sourceVideoPath,
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        '-preset', 'veryfast',
+        '-crf', '20',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-movflags', '+faststart',
+        '-y',
+        finalProcessedPath,
+      ];
+      const transcodeRes = await runProcess('ffmpeg', transcodeArgs, 7200000);
+      if (transcodeRes.code !== 0 || !fs.existsSync(finalProcessedPath)) {
+        log(`Предупреждение кодирования, используется оригинальный контейнер: ${transcodeRes.stderr.slice(0, 150)}`);
+        fs.copyFileSync(sourceVideoPath, finalProcessedPath);
+      } else {
+        log('Видео успешно сохранено в универсальном формате H.264 (AVC) + AAC (воспроизведение в Windows без ошибки 0xc00d5212)!');
       }
     } else {
       // Direct copy to downloads container
