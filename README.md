@@ -1,6 +1,13 @@
 # UltraDL 4K — Профессиональная обработка, получение и верификация видеофайлов
 
-**UltraDL 4K** — современный полнофункциональный программный комплекс для работы с видеоматериалами из разрешенных источников, поддерживающий разрешения до **2160p (4K UHD)**, объединение аудио- и видеопотоков через **FFmpeg**, защиту от SSRF-атак и многоуровневую систему проверки на битые кадры и черный экран.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online%20App-brightgreen?style=for-the-badge&logo=google-cloud)](https://ais-dev-wggnc2qkvdfond3w4sw3kp-43626584951.us-west1.run.app)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-4.4%20Integrated-blue?style=for-the-badge&logo=ffmpeg)](https://ffmpeg.org)
+[![Resolution](https://img.shields.io/badge/Max%20Resolution-2160p%20(4K%20UHD)-purple?style=for-the-badge)](https://ais-dev-wggnc2qkvdfond3w4sw3kp-43626584951.us-west1.run.app)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+
+> 🚀 **Рабочая веб-версия приложения развернута и доступна онлайн:**  
+> 👉 **[https://ais-dev-wggnc2qkvdfond3w4sw3kp-43626584951.us-west1.run.app](https://ais-dev-wggnc2qkvdfond3w4sw3kp-43626584951.us-west1.run.app)**  
+> *(Полнофункциональный сервер с установленным FFmpeg, Deno, yt-dlp, 9-этапным верификатором и поддержкой 4K UHD)*
 
 ---
 
