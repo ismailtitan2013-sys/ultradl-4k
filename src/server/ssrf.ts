@@ -119,8 +119,8 @@ export async function validateUrlAgainstSSRF(rawUrl: string): Promise<{ valid: b
 export async function safeDownloadFile(
   rawUrl: string,
   destinationPath: string,
-  maxSizeBytes: number = 500 * 1024 * 1024, // 500MB
-  timeoutMs: number = 60000,
+  maxSizeBytes: number = 50 * 1024 * 1024 * 1024, // 50GB (поддержка полнометражных фильмов)
+  timeoutMs: number = 1800000, // 30 минут
   maxRedirects: number = 5
 ): Promise<DownloadResult> {
   let currentUrl = rawUrl;

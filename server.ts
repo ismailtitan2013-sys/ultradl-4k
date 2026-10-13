@@ -49,7 +49,7 @@ const TMP_DIR = path.join(STORAGE_DIR, 'tmp');
 const upload = multer({
   dest: UPLOADS_DIR,
   limits: {
-    fileSize: 300 * 1024 * 1024, // 300 MB max for upload
+    fileSize: 50 * 1024 * 1024 * 1024, // 50 GB (неограниченно для фильмов любого размера)
   },
 });
 
@@ -238,7 +238,7 @@ app.post('/api/process', async (req, res) => {
     } else if (body.sourceType === 'direct_url' && body.url) {
       log(`Проверка безопасности и загрузка потока из источника: ${body.url}`);
       const downloadDest = path.join(TMP_DIR, `${taskId}_download.tmp`);
-      const dlRes = await safeDownloadFile(body.url, downloadDest, 400 * 1024 * 1024);
+      const dlRes = await safeDownloadFile(body.url, downloadDest, 50 * 1024 * 1024 * 1024);
       sourceVideoPath = downloadDest;
       needCleanupSource = true;
       log(`Файл получен (${(dlRes.bytesReceived / 1024 / 1024).toFixed(1)} МБ)`);

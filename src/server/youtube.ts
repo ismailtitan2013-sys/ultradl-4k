@@ -3,12 +3,43 @@ import fs from 'node:fs';
 import { runProcess } from './ffmpeg.ts';
 import type { SourceAnalysisResult, QualityPreset, MediaProbeResult } from '../types/video.ts';
 
-const YT_DLP_BIN = fs.existsSync(path.resolve('bin/yt-dlp'))
-  ? path.resolve('bin/yt-dlp')
-  : '/usr/local/bin/yt-dlp';
-
 const COOKIES_DIR = path.resolve('storage/cookies');
 const COOKIES_FILE = path.join(COOKIES_DIR, 'youtube_cookies.txt');
+
+/**
+ * Ensures yt-dlp and deno binaries have executable permissions (+x) to eliminate EACCES errors.
+ */
+export function ensureExecutables(): string {
+  const candidates = [
+    path.resolve('bin/yt-dlp'),
+    '/usr/local/bin/yt-dlp',
+    '/usr/bin/yt-dlp',
+  ];
+
+  let chosenBin = 'yt-dlp';
+
+  for (const binPath of candidates) {
+    if (fs.existsSync(binPath)) {
+      try {
+        fs.chmodSync(binPath, 0o755);
+      } catch {}
+      chosenBin = binPath;
+      break;
+    }
+  }
+
+  // Also ensure deno executable permissions if present
+  const denoCandidates = ['/usr/local/bin/deno', path.resolve('bin/deno'), '/root/.deno/bin/deno'];
+  for (const denoPath of denoCandidates) {
+    if (fs.existsSync(denoPath)) {
+      try {
+        fs.chmodSync(denoPath, 0o755);
+      } catch {}
+    }
+  }
+
+  return chosenBin;
+}
 
 export function isYouTubeUrl(urlStr: string): boolean {
   try {
@@ -34,6 +65,9 @@ export function extractYouTubeId(urlStr: string): string | null {
     if (parsed.pathname.includes('/shorts/')) {
       return parsed.pathname.split('/shorts/')[1].split('/')[0] || null;
     }
+    if (parsed.pathname.includes('/embed/')) {
+      return parsed.pathname.split('/embed/')[1].split('/')[0] || null;
+    }
     return parsed.searchParams.get('v');
   } catch {
     return null;
@@ -57,7 +91,18 @@ export function clearYouTubeCookies(): void {
   }
 }
 
+function getJsRuntimesArg(): string[] {
+  if (fs.existsSync('/usr/local/bin/deno')) {
+    return ['--js-runtimes', 'deno:/usr/local/bin/deno'];
+  }
+  if (fs.existsSync('/usr/local/bin/node')) {
+    return ['--js-runtimes', 'node:/usr/local/bin/node'];
+  }
+  return [];
+}
+
 export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisResult> {
+  const binPath = ensureExecutables();
   const videoId = extractYouTubeId(urlStr);
   const cookiesExist = hasYouTubeCookies();
 
@@ -66,8 +111,9 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
     '--no-playlist',
     '--no-warnings',
     '--skip-download',
-    '--js-runtimes',
-    'node:/usr/bin/node',
+    '--extractor-args',
+    'youtube:player_client=web,android',
+    ...getJsRuntimesArg(),
   ];
 
   if (cookiesExist) {
@@ -77,7 +123,7 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
   args.push(urlStr);
 
   try {
-    const { stdout, stderr, code } = await runProcess(YT_DLP_BIN, args, 25000);
+    const { stdout, stderr, code } = await runProcess(binPath, args, 35000);
 
     if (code !== 0 || !stdout.trim()) {
       const errLower = (stderr || '').toLowerCase();
@@ -85,24 +131,25 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
         errLower.includes('sign in to confirm') ||
         errLower.includes('bot') ||
         errLower.includes('cookies') ||
-        errLower.includes('login');
+        errLower.includes('login') ||
+        errLower.includes('rotated');
 
       if (needsBotAuth) {
         return {
           isPermitted: false,
           sourceType: 'unsupported_platform',
           sourceName: 'YouTube (Защита от ботов)',
-          title: `YouTube Video [${videoId || 'ID'}] — Требуются Cookies`,
+          title: `YouTube [${videoId || 'ID'}] — Защита платформы`,
           url: urlStr,
           directDownloadAllowed: false,
           errorMessage:
-            'YouTube заблокировал анонимный запрос с IP облачного дата-центра: «Sign in to confirm you’re not a bot». Для продолжения загрузите ваш файл cookies (Netscape cookies.txt) из браузера.',
+            'YouTube заблокировал облачный дата-центр проверкой на роботов: «Sign in to confirm you’re not a bot». Чтобы скачивать любые фильмы и видеоролики без ограничений, загрузите свежий cookies.txt из открытой вкладки YouTube.',
           ethicalNotice: {
             platform: 'YouTube',
             reason:
               'YouTube ограничивает прямые запросы из серверных дата-центров (Cloud Run) для предотвращения парсинга.',
             officialAlternative:
-              'Загрузите ваш cookies.txt из браузера (расширение «Get cookies.txt locally» для Chrome/Firefox). После этого UltraDL 4K сможет извлекать потоки до 2160p (4K UHD) и объединять их через FFmpeg.',
+              'Экспортируйте файл cookies.txt на открытой вкладке YouTube (через расширение браузера) и загрузите в панели авторизации выше. После этого видеофайлы любого размера скачиваются без ограничений.',
           },
           availableResolutions: [],
           thumbnailUrl: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : undefined,
@@ -197,16 +244,20 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
   }
 }
 
+/**
+ * Downloads a video or entire movie from YouTube with unlimited size support (up to 2 hours runtime).
+ */
 export async function downloadYouTubeStream(
   urlStr: string,
   targetHeight: number = 1080,
   destPath: string,
   logCallback: (msg: string) => void
 ): Promise<void> {
+  const binPath = ensureExecutables();
   const cookiesExist = hasYouTubeCookies();
   logCallback(`Подготовка к загрузке потока YouTube (качество до ${targetHeight}p)...`);
 
-  // Format selector: select best video up to targetHeight, combine with best audio
+  // Format selector: best video up to targetHeight merged with best audio
   const formatSelector = `bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/best`;
 
   const args = [
@@ -218,8 +269,9 @@ export async function downloadYouTubeStream(
     '/usr/bin/ffmpeg',
     '--no-playlist',
     '--no-warnings',
-    '--js-runtimes',
-    'node:/usr/bin/node',
+    '--extractor-args',
+    'youtube:player_client=web,android',
+    ...getJsRuntimesArg(),
     '-o',
     destPath,
   ];
@@ -233,14 +285,15 @@ export async function downloadYouTubeStream(
 
   args.push(urlStr);
 
-  logCallback(`Запуск yt-dlp с объединением аудио и видео через системный FFmpeg...`);
-  const { stderr, code } = await runProcess(YT_DLP_BIN, args, 180000); // 3 minutes timeout
+  logCallback(`Запуск yt-dlp с объединением аудио и видео через системный FFmpeg (режим неограниченного размера)...`);
+  // 7200000ms = 2 hours timeout for massive 4K movie downloads
+  const { stderr, code } = await runProcess(binPath, args, 7200000);
 
   if (code !== 0 || !fs.existsSync(destPath) || fs.statSync(destPath).size === 0) {
     const errText = stderr || 'Файл не был создан';
-    if (errText.includes('Sign in to confirm') || errText.includes('bot')) {
+    if (errText.includes('Sign in to confirm') || errText.includes('bot') || errText.includes('rotated')) {
       throw new Error(
-        'YouTube заблокировал скачивание: «Sign in to confirm you’re not a bot». Пожалуйста, загрузите cookies.txt из вашего браузера в панели настроек YouTube.'
+        'YouTube заблокировал скачивание: «Sign in to confirm you’re not a bot». Пожалуйста, загрузите свежий cookies.txt из вашего браузера в панели настроек YouTube.'
       );
     }
     throw new Error(`Ошибка загрузки через yt-dlp (код ${code}): ${errText.slice(-300)}`);
