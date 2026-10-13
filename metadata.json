@@ -1,0 +1,6 @@
+{
+  "name": "UltraDL 4K",
+  "description": "Профессиональный инструмент для анализа, загрузки и проверки видеофайлов с разрешением до 4K (2160p), объединением потоков и защитой от черного экрана.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

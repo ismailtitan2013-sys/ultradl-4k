@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  ultradl-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ultradl-4k-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - STORAGE_DIR=/app/storage
+      - PORT=8000
+    volumes:
+      - ultradl-data:/app/storage
+    restart: unless-stopped
+
+volumes:
+  ultradl-data:
