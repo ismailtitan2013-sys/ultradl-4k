@@ -112,7 +112,7 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
     '--no-warnings',
     '--skip-download',
     '--extractor-args',
-    'youtube:player_client=web,android',
+    'youtube:player_client=web_embedded,web',
     ...getJsRuntimesArg(),
   ];
 
@@ -173,12 +173,23 @@ export async function analyzeYouTubeUrl(urlStr: string): Promise<SourceAnalysisR
     const durationSec = data.duration || 0;
     const thumbnail = data.thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : undefined);
 
-    // Extract real available formats and heights
+    // Extract real available formats and heights (supporting both 16:9 4K and 9:16 Shorts)
     const formats: any[] = data.formats || [];
     const heightsSet = new Set<number>();
 
     formats.forEach((f) => {
-      if (f.height && typeof f.height === 'number' && f.height >= 144) {
+      // Ignore storyboard images
+      if (f.vcodec === 'none' && f.acodec === 'none') return;
+      if (f.format_note === 'storyboard') return;
+
+      const w = f.width;
+      const h = f.height;
+      if (w && h && typeof w === 'number' && typeof h === 'number') {
+        const shorterSide = Math.min(w, h);
+        if (shorterSide >= 144) {
+          heightsSet.add(shorterSide);
+        }
+      } else if (f.height && typeof f.height === 'number' && f.height >= 144) {
         heightsSet.add(f.height);
       }
     });
@@ -257,8 +268,8 @@ export async function downloadYouTubeStream(
   const cookiesExist = hasYouTubeCookies();
   logCallback(`Подготовка к загрузке потока YouTube (качество до ${targetHeight}p)...`);
 
-  // Format selector: best video up to targetHeight merged with best audio
-  const formatSelector = `bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/best`;
+  // Format selector: best video up to targetHeight (supports both horizontal 4K and vertical Shorts) merged with best audio
+  const formatSelector = `bestvideo[height<=${targetHeight}]+bestaudio/bestvideo[width<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/best`;
 
   const args = [
     '-f',
@@ -270,7 +281,7 @@ export async function downloadYouTubeStream(
     '--no-playlist',
     '--no-warnings',
     '--extractor-args',
-    'youtube:player_client=web,android',
+    'youtube:player_client=web_embedded,web',
     ...getJsRuntimesArg(),
     '-o',
     destPath,
